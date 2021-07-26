@@ -43,8 +43,9 @@ public class MultiInstanceParser extends BaseChildElementParser {
         if (xtr.getAttributeValue(null, ATTRIBUTE_MULTIINSTANCE_SEQUENTIAL) != null) {
             multiInstanceDef.setSequential(Boolean.valueOf(xtr.getAttributeValue(null, ATTRIBUTE_MULTIINSTANCE_SEQUENTIAL)));
         }
-        if (xtr.getAttributeValue(FLOWABLE_EXTENSIONS_NAMESPACE, ATTRIBUTE_MULTIINSTANCE_NO_WAIT_STATES) != null) {
-            multiInstanceDef.setNoWaitStates(Boolean.valueOf(xtr.getAttributeValue(FLOWABLE_EXTENSIONS_NAMESPACE, ATTRIBUTE_MULTIINSTANCE_NO_WAIT_STATES)));
+        if (xtr.getAttributeValue(FLOWABLE_EXTENSIONS_NAMESPACE, ATTRIBUTE_MULTIINSTANCE_NO_WAIT_STATES_ASYNC_LEAVE) != null) {
+            multiInstanceDef.setNoWaitStatesAsyncLeave(Boolean.valueOf(xtr.getAttributeValue(FLOWABLE_EXTENSIONS_NAMESPACE,
+                ATTRIBUTE_MULTIINSTANCE_NO_WAIT_STATES_ASYNC_LEAVE)));
         }
         multiInstanceDef.setInputDataItem(BpmnXMLUtil.getAttributeValue(ATTRIBUTE_MULTIINSTANCE_COLLECTION, xtr));
         multiInstanceDef.setElementVariable(BpmnXMLUtil.getAttributeValue(ATTRIBUTE_MULTIINSTANCE_VARIABLE, xtr));

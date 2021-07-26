@@ -31,7 +31,7 @@ import org.flowable.engine.impl.bpmn.helper.ScopeUtil;
 import org.flowable.engine.impl.cfg.ProcessEngineConfigurationImpl;
 import org.flowable.engine.impl.delegate.ActivityBehavior;
 import org.flowable.engine.impl.jobexecutor.ParallelMultiInstanceActivityCompletionJobHandler;
-import org.flowable.engine.impl.jobexecutor.ParallelMultiInstanceWithNoWaitStateCompletionJobHandler;
+import org.flowable.engine.impl.jobexecutor.ParallelMultiInstanceWithNoWaitStatesAsyncLeaveJobHandler;
 import org.flowable.engine.impl.persistence.entity.ExecutionEntity;
 import org.flowable.engine.impl.persistence.entity.ExecutionEntityManager;
 import org.flowable.engine.impl.util.CommandContextUtil;
@@ -108,10 +108,12 @@ public class ParallelMultiInstanceBehavior extends MultiInstanceActivityBehavior
         ProcessEngineConfigurationImpl processEngineConfiguration = CommandContextUtil.getProcessEngineConfiguration();
         // No need to check the completed variable for backwards compatibility(like below),
         // as this is for new instances and not for existing ones that get completed and might be started in the 'old way'
-        if (isAsyncWithoutWaitStates(processEngineConfiguration) && processEngineConfiguration.isParallelMultiInstanceAsyncLeave()) {
+        if (isAsyncWithoutWaitStates(processEngineConfiguration)) {
 
-            // The execution doesn't matter, so taking the first one as this one has highest chance most likely of finishing first typically
-            JobEntity job = JobUtil.createJob(concurrentExecutions.get(0), ParallelMultiInstanceWithNoWaitStateCompletionJobHandler.TYPE, processEngineConfiguration);
+            // The difference with the ParallelMultiInstanceActivityCompletionJobHandler approach is that here the job gets created up front
+            // (as the flag for no wait states has been set, this won't create an ever-recreating job).
+
+            JobEntity job = JobUtil.createJob(concurrentExecutions.get(0), ParallelMultiInstanceWithNoWaitStatesAsyncLeaveJobHandler.TYPE, processEngineConfiguration);
             JobService jobService = processEngineConfiguration.getJobServiceConfiguration().getJobService();
             jobService.createAsyncJobNoTriggerAsyncExecutor(job, true);
             jobService.insertJob(job);
@@ -120,9 +122,9 @@ public class ParallelMultiInstanceBehavior extends MultiInstanceActivityBehavior
         return nrOfInstances;
     }
 
-    protected boolean isAsyncWithoutWaitStates(ProcessEngineConfigurationImpl processEngineConfiguration) {
+    public boolean isAsyncWithoutWaitStates(ProcessEngineConfigurationImpl processEngineConfiguration) {
         return activity.isAsynchronous()
-            && activity.getLoopCharacteristics().isNoWaitStates()
+            && activity.getLoopCharacteristics().isNoWaitStatesAsyncLeave()
             && processEngineConfiguration.isParallelMultiInstanceAsyncLeave();
     }
 
@@ -145,13 +147,16 @@ public class ParallelMultiInstanceBehavior extends MultiInstanceActivityBehavior
             // Optimization: if there are active child executions in the database, the childExecutions definitely must not be fetched.
             // If there are none in the database, the child executions need to be fetched: either the multi instance is completed
             // or this logic is called at a time when things have not yet been flushed.
+
             ExecutionEntityManager executionEntityManager = processEngineConfiguration.getExecutionEntityManager();
             DelegateExecution miRootExecution = getMultiInstanceRootExecution(execution);
             long activeChildExecutionsCount = executionEntityManager.countActiveExecutionsByParentId(miRootExecution.getId());
 
             if (activeChildExecutionsCount > 0) { // there are active ones, nothing to do
 
-                inactivateExecution(execution, processEngineConfiguration);
+                // In this 'no wait state' mode, all executions until the multi instance root need to be inactivated, to make the async job work.
+                inactivateExecutionAndParentExecutions(execution, processEngineConfiguration);
+
                 callActivityEndListeners(execution);
                 aggregateVariablesForChildExecution(execution, miRootExecution);
 
@@ -229,6 +234,16 @@ public class ParallelMultiInstanceBehavior extends MultiInstanceActivityBehavior
         } else {
             sendCompletedEvent(execution);
             super.leave(execution);
+        }
+    }
+
+    protected void inactivateExecutionAndParentExecutions(DelegateExecution execution, ProcessEngineConfigurationImpl processEngineConfiguration) {
+        inactivateExecution(execution, processEngineConfiguration);
+
+        ExecutionEntity parentExecution = (ExecutionEntity) execution.getParent();
+        while (!parentExecution.isMultiInstanceRoot()) {
+            inactivateExecution(parentExecution, processEngineConfiguration);
+            parentExecution = parentExecution.getParent();
         }
     }
 

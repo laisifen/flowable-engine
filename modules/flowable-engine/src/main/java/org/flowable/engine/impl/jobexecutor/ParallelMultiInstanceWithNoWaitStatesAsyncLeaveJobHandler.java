@@ -12,6 +12,8 @@
  */
 package org.flowable.engine.impl.jobexecutor;
 
+import java.util.List;
+
 import org.flowable.bpmn.model.Activity;
 import org.flowable.bpmn.model.FlowElement;
 import org.flowable.common.engine.impl.interceptor.CommandContext;
@@ -31,9 +33,9 @@ import org.flowable.variable.api.delegate.VariableScope;
 /**
  * @author Joram Barrez
  */
-public class ParallelMultiInstanceWithNoWaitStateCompletionJobHandler implements JobHandler {
+public class ParallelMultiInstanceWithNoWaitStatesAsyncLeaveJobHandler implements JobHandler {
 
-    public static final String TYPE = "parallel-multi-instance-no-wait-state-complete";
+    public static final String TYPE = "parallel-multi-instance-no-waits-async-leave";
 
     @Override
     public String getType() {
@@ -61,13 +63,27 @@ public class ParallelMultiInstanceWithNoWaitStateCompletionJobHandler implements
                         // The job can simply be rescheduled and it will try the same logic again later as things are not yet done.
                         long activeChildExecutionCount = executionEntityManager.countActiveExecutionsByParentId(multiInstanceRootExecution.getId());
                         if (activeChildExecutionCount > 0) {
-                            reCreateJob(processEngineConfiguration, execution);
+
+                            List<String> boundaryEventActivityIds = ExecutionGraphUtil.getBoundaryEventActivityIds(multiInstanceRootExecution);
+                            if (boundaryEventActivityIds.isEmpty()) {
+                                reCreateJob(processEngineConfiguration, execution);
+
+                            } else {
+                                // If all the remaining execution are boundary event execution, the multi instance can be left.
+                                List<ExecutionEntity> boundaryEventChildExecutions = executionEntityManager
+                                    .findExecutionsByParentExecutionAndActivityIds(multiInstanceRootExecution.getId(), boundaryEventActivityIds);
+                                if (activeChildExecutionCount == boundaryEventChildExecutions.size()) {
+                                    leaveMultiInstance(processEngineConfiguration, execution, parallelMultiInstanceBehavior);
+
+                                } else {
+                                    reCreateJob(processEngineConfiguration, execution);
+
+                                }
+
+                            }
 
                         } else {
-                            boolean multiInstanceCompleted = parallelMultiInstanceBehavior.leaveAsync(execution);
-                            if (!multiInstanceCompleted) {
-                                reCreateJob(processEngineConfiguration, execution);
-                            }
+                            leaveMultiInstance(processEngineConfiguration, execution, parallelMultiInstanceBehavior);
 
                         }
                     }
@@ -84,5 +100,16 @@ public class ParallelMultiInstanceWithNoWaitStateCompletionJobHandler implements
         jobService.createAsyncJobNoTriggerAsyncExecutor(newJob, true);
         jobService.insertJob(newJob);
     }
+
+    protected void leaveMultiInstance(ProcessEngineConfigurationImpl processEngineConfiguration, ExecutionEntity execution,
+        ParallelMultiInstanceBehavior parallelMultiInstanceBehavior) {
+        // The ParallelMultiInstanceBehavior is implemented with a child execution leaving in mind.
+        // Hence why a random child execution is selected instead of passing the multi-instance root execution
+        boolean multiInstanceCompleted = parallelMultiInstanceBehavior.leaveAsync(execution);
+        if (!multiInstanceCompleted) {
+            reCreateJob(processEngineConfiguration, execution);
+        }
+    }
+
 
 }
