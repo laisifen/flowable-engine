@@ -72,7 +72,7 @@ public class ParallelMultiInstanceWithNoWaitStatesAsyncLeaveJobHandler implement
                                 // If all the remaining execution are boundary event execution, the multi instance can be left.
                                 List<ExecutionEntity> boundaryEventChildExecutions = executionEntityManager
                                     .findExecutionsByParentExecutionAndActivityIds(multiInstanceRootExecution.getId(), boundaryEventActivityIds);
-                                if (activeChildExecutionCount == boundaryEventChildExecutions.size()) {
+                                if (activeChildExecutionCount <= boundaryEventChildExecutions.size()) {
                                     leaveMultiInstance(processEngineConfiguration, execution, parallelMultiInstanceBehavior);
 
                                 } else {

@@ -158,6 +158,11 @@ public class ExecutionGraphUtil {
         return instanceExecution;
     }
 
+    /**
+     * Returns the list of boundary event activity ids that are in the the process model,
+     * associated with the current activity of the passed execution.
+     * Note that no check if made here whether this an active child execution for those boundary events.
+     */
     public static List<String> getBoundaryEventActivityIds(DelegateExecution execution) {
         Process process = ProcessDefinitionUtil.getProcess(execution.getProcessDefinitionId());
 
