@@ -21,14 +21,14 @@ import org.springframework.boot.web.servlet.support.SpringBootServletInitializer
  * @author Filip Hrisafov
  */
 @SpringBootApplication
-public class FlowableUiApplication extends SpringBootServletInitializer {
+public class FlowableUiApplication/* extends SpringBootServletInitializer*/ {
 
     public static void main(String[] args) {
         SpringApplication.run(FlowableUiApplication.class, args);
     }
 
-    @Override
-    protected SpringApplicationBuilder configure(SpringApplicationBuilder builder) {
-        return builder.sources(FlowableUiApplication.class);
-    }
+//    @Override
+//    protected SpringApplicationBuilder configure(SpringApplicationBuilder builder) {
+//        return builder.sources(FlowableUiApplication.class);
+//    }
 }

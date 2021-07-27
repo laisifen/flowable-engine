@@ -220,6 +220,7 @@ public class ModelResource {
 
                 String saveAs = values.getFirst("saveAs");
                 String json = values.getFirst("json_xml");
+                LOGGER.info("json_xml:{}", json);
                 return createNewModel(saveAs, model.getDescription(), model.getModelType(), json);
 
             } else if (RESOLVE_ACTION_OVERWRITE.equals(resolveAction)) {
@@ -288,6 +289,7 @@ public class ModelResource {
         }
 
         String json = values.getFirst("json_xml");
+        LOGGER.info("json_xml:{}", json);
 
         try {
 			ObjectNode editorJsonNode = (ObjectNode) objectMapper.readTree(json);
